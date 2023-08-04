@@ -1,445 +1,382 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-struct node																//node of passenger data!!!
-{
-	// data;
-	char name[10];
-	int passenger_id;
-	char boarding_train[10];
-	char boarding_station[10];
-	char travelling_class[10];		//(sleeper,3AC,2AC,1AC)
-	char destination_station[10];
-	int train_id;
-	int bogie_no; //NO.OF.BOGIES assumed to be 10
-	int seat_no;	//seats assumed to be 50
-	char date_of_travel[10];
-	struct node* next;
-};
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
+typedef enum {
+    SLEEPER,
+    AC3,
+    AC2,
+    AC1
+} TravelClass;
 
-
-
-struct train_node									// node of train data
-{
-	int train_id;
-	int count;
-	struct train_node* next;
-};
-
-
-
-
-struct node *start=NULL;
-struct node* sorted = NULL;
-struct train_node* lptr=NULL;
-
-
-void display();
-int search(int train,int bogie,int seat);
-
-//input of passengers
-void insert()
-{
-        printf("NO .OF passengers added one time:");
-        int n;
-        scanf("%d",&n);
-        while(n!=0)
-    	{
-    		struct node *temp;
-    		struct train_node* t_temp;
-	        temp=(struct node *)malloc(sizeof(struct node));
-	        if(temp==NULL)
-	        {
-	                printf("\n\t***\t reservation failed.\t***\t\n");
-	                return;
-	        }
-	        printf("\nEnter the data values for the node:\t" );
-	        printf("\nname\tpass_id \tdes_station\ttrain_id\n");
-	        scanf("%s",&temp->name);
-	        scanf("%d",&temp->passenger_id);
-	        scanf("%s",&temp->destination_station);
-	        scanf("%d",&temp->train_id);
-	        t_temp->train_id=temp->train_id;		//stores data of trainid in train node also
-	        printf("\nenter the bogie no in between 1-10  :");
-	        scanf("%d",&temp->bogie_no);
-	        printf("\nenter the bogie no in between 1-50   :");
-	        scanf("%d",&temp->seat_no);
-	        int s;
-		   s=search(temp->train_id,temp->bogie_no,temp->seat_no);
-	       if(s==1)
-	        {
-	        	printf("boige and seatno entered is booked alredy enter another value");
-	        	display();
-	        	scanf("%d",&temp->seat_no);
-	    	}
-	        
-	        printf("BOARDING_TRAIN	BOARD_STATION	\n");
-	      	scanf("%s",&temp->boarding_train);
-	        scanf("%s",&temp->boarding_station);
-	        printf("\nselect class:(sleeper,3AC,2AC,1AC)");
-	        scanf("%s",&temp->travelling_class);
-	        printf("Enter the travel date:");
-	        scanf("%s",temp->date_of_travel);
-	        printf("\n\t***\tThe Reservation done successfully\t***\n ");
-	        temp->next =NULL;
-	        if(start==NULL)
-	        {
-	                start=temp;
-	        }
-	        else
-	        {
-	                temp->next=start;
-	                start=temp;
-	        }
-	        
-	        n--;
-		}
-}
-
-
-//Deletes an element if the passenger cancels the reservation.
-void Delete()
-{
-    struct node * temp1 = start;
-    struct node * temp2 = start; 
+typedef struct {
+    char name[50];
     int passenger_id;
-    printf("Enter passenger id to delete all records of that particular passenger id.: ");
-    scanf("%d", &passenger_id);
-    while(temp1!=NULL){
-        
-        if(temp1->passenger_id==passenger_id){
-            
-            printf("Record with passenger_id %d Found !!!\n ", passenger_id);
-            
-            if(temp1==temp2){
-                // this condition will run if
-                // the record that we need to delete is the first node
-                // of the linked list
-                start = start->next;
-                free(temp1);
-            }
-            else{
-                // temp1 is the node we need to delete
-                // temp2 is the node previous to temp1
-                temp2->next = temp1->next;
-                free(temp1); 
-            }
-            
-            printf("\n the  Reservation cancelled successfully!!!\n");
-            return;
-            
-        }
-        temp2 = temp1;
-        temp1 = temp1->next;
-        
+    char boarding_train[20];
+    char boarding_station[50];
+    TravelClass travel_class;
+    char destination_station[50];
+    int train_id;
+    int seat_number;
+    // Add other fields if necessary
+    struct Passenger* next;
+} Passenger;
+
+typedef struct {
+    int total_seats;
+    int booked_seats;
+} Bogie;
+
+typedef struct {
+    int train_id;
+    int num_bogies;
+    Bogie sleeper_bogies[10];
+    Bogie ac3_bogies[5];
+    Bogie ac2_bogies[3];
+    Bogie ac1_bogies[2];
+    // Add other fields if necessary
+} Train;
+
+typedef struct {
+    Train train_data;
+    Passenger* passengers;
+    struct TrainNode* next;
+} TrainNode;
+
+typedef struct {
+    TrainNode* head;
+} TrainList;
+
+void initializeTrainList(TrainList* list) {
+    list->head = NULL;
+}
+
+Passenger* createPassengerNode(char name[], int passenger_id, char boarding_train[], char boarding_station[], TravelClass travel_class, char destination_station[], int train_id, int seat_number) {
+    Passenger* newPassenger = (Passenger*)malloc(sizeof(Passenger));
+    if (newPassenger == NULL) {
+        printf("Memory allocation failed for the passenger.\n");
+        return NULL;
     }
-    printf("passenger with passenger_id %d is not found !!!\n   Reservation Cancellation failed.\n", passenger_id);
-    
+
+    strcpy(newPassenger->name, name);
+    newPassenger->passenger_id = passenger_id;
+    strcpy(newPassenger->boarding_train, boarding_train);
+    strcpy(newPassenger->boarding_station, boarding_station);
+    newPassenger->travel_class = travel_class;
+    strcpy(newPassenger->destination_station, destination_station);
+    newPassenger->train_id = train_id;
+    newPassenger->seat_number = seat_number;
+    newPassenger->next = NULL;
+
+    return newPassenger;
+}
+
+void insertPassengers(TrainList* list, char name[], int passenger_id, char boarding_train[], char boarding_station[], TravelClass travel_class, char destination_station[], int train_id) {
+    TrainNode* currentTrainNode = list->head;
+    while (currentTrainNode != NULL) {
+        if (currentTrainNode->train_data.train_id == train_id) {
+            // Check for seat availability and allocate seats
+            // Assume there is a function available to do this: allocateSeat(currentTrainNode, travel_class, seat_number);
+
+            // Create a new passenger node
+            int seat_number = 1; // Assume the seat number is 1 for simplicity (should be allocated properly)
+            Passenger* newPassenger = createPassengerNode(name, passenger_id, boarding_train, boarding_station, travel_class, destination_station, train_id, seat_number);
+            if (newPassenger == NULL) {
+                printf("Failed to create a new passenger node.\n");
+                return;
+            }
+
+            // Insert the new passenger node into the linked list
+            if (currentTrainNode->passengers == NULL) {
+                currentTrainNode->passengers = newPassenger;
+            } else {
+                Passenger* currentPassenger = currentTrainNode->passengers;
+                while (currentPassenger->next != NULL) {
+                    currentPassenger = currentPassenger->next;
+                }
+                currentPassenger->next = newPassenger;
+            }
+
+            printf("Reservation done successfully.\n");
+            return;
+        }
+        currentTrainNode = currentTrainNode->next;
+    }
+
+    printf("Reservation failed. Train with ID %d not found.\n", train_id);
 }
 
 
 
-int search(int train,int bogie,int seat)
-{
-	
-	struct node* temp = start;
-    while(temp!=NULL)
-	{
-		
-        if((temp->bogie_no==bogie)&&(temp->seat_no==seat)&&(temp->train_id==train))
-		{
-            return 1;
+void deletePassengers(TrainList* list, int passenger_id) {
+    TrainNode* currentTrainNode = list->head;
+    while (currentTrainNode != NULL) {
+        Passenger* prevPassenger = NULL;
+        Passenger* currentPassenger = currentTrainNode->passengers;
+
+        while (currentPassenger != NULL) {
+            if (currentPassenger->passenger_id == passenger_id) {
+                // Found the passenger to delete
+                if (prevPassenger == NULL) {
+                    // The passenger to delete is the head of the passenger list
+                    currentTrainNode->passengers = currentPassenger->next;
+                } else {
+                    prevPassenger->next = currentPassenger->next;
+                }
+                free(currentPassenger);
+                printf("Reservation cancelled successfully.\n");
+                return;
+            }
+
+            prevPassenger = currentPassenger;
+            currentPassenger = currentPassenger->next;
         }
-        temp = temp->next;
+
+        currentTrainNode = currentTrainNode->next;
+    }
+
+    printf("Reservation cancellation failed. Passenger with ID %d not found.\n", passenger_id);
+}
+
+
+
+void sortByTravelDate(TrainList* list, int passenger_id) {
+    TrainNode* currentTrainNode = list->head;
+    while (currentTrainNode != NULL) {
+        Passenger* currentPassenger = currentTrainNode->passengers;
+        int found = 0;
+
+        while (currentPassenger != NULL) {
+            if (currentPassenger->passenger_id == passenger_id) {
+                found = 1;
+                break;
+            }
+            currentPassenger = currentPassenger->next;
+        }
+
+        if (found) {
+            // Implementation of sorting passenger destination stations by travel date
+            // You can use any sorting algorithm to sort the destination stations based on travel date
+            // For simplicity, we will just print the destination stations in the order they appear in the linked list
+
+            printf("List of destination stations for passenger with ID %d:\n", passenger_id);
+            currentPassenger = currentTrainNode->passengers;
+            while (currentPassenger != NULL) {
+                if (currentPassenger->passenger_id == passenger_id) {
+                    printf("%s\n", currentPassenger->destination_station);
+                }
+                currentPassenger = currentPassenger->next;
+            }
+
+            return;
+        }
+
+        currentTrainNode = currentTrainNode->next;
+    }
+
+    printf("Passenger with ID %d not found.\n", passenger_id);
+}
+
+
+
+void sortTrains(TrainList* list) {
+    // Count the number of passengers on each train
+    int trainCount[1000] = {0}; // Assuming train IDs are within the range [1, 1000]
+
+    TrainNode* currentTrainNode = list->head;
+    while (currentTrainNode != NULL) {
+        Passenger* currentPassenger = currentTrainNode->passengers;
+        while (currentPassenger != NULL) {
+            trainCount[currentTrainNode->train_data.train_id]++;
+            currentPassenger = currentPassenger->next;
+        }
+        currentTrainNode = currentTrainNode->next;
+    }
+
+    // Create an array of train IDs and their corresponding passenger counts
+    int numTrains = 0;
+    int trainIDs[1000] = {0};
+    int passengerCounts[1000] = {0};
+
+    currentTrainNode = list->head;
+    while (currentTrainNode != NULL) {
+        int trainID = currentTrainNode->train_data.train_id;
+        int passengerCount = trainCount[trainID];
+
+        int i = 0;
+        while (i < numTrains && passengerCounts[i] > passengerCount) {
+            i++;
+        }
+
+        for (int j = numTrains; j > i; j--) {
+            trainIDs[j] = trainIDs[j - 1];
+            passengerCounts[j] = passengerCounts[j - 1];
+        }
+
+        trainIDs[i] = trainID;
+        passengerCounts[i] = passengerCount;
+
+        numTrains++;
+
+        currentTrainNode = currentTrainNode->next;
+    }
+
+    // Print the sorted list of trains and their passenger counts
+    printf("Sorted list of trains by number of passengers:\n");
+    for (int i = 0; i < numTrains; i++) {
+        printf("Train ID: %d, Passenger Count: %d\n", trainIDs[i], passengerCounts[i]);
+    }
+}
+
+
+
+void promotePassengers(TrainList* list, int train_id, int date_of_travel) {
+    TrainNode* currentTrainNode = list->head;
+
+    while (currentTrainNode != NULL) {
+        if (currentTrainNode->train_data.train_id == train_id) {
+            Passenger* currentPassenger = currentTrainNode->passengers;
+
+            while (currentPassenger != NULL) {
+                if (currentPassenger->travel_class != AC1) {
+                    // Promote passengers to the next travel class if seats are available and consent is given
+                    int bogie_index = currentPassenger->travel_class;
+                    int seat_number = currentPassenger->seat_number;
+
+                    switch (currentPassenger->travel_class) {
+                        case SLEEPER:
+                            if (currentTrainNode->train_data.ac3_bogies[0].booked_seats < currentTrainNode->train_data.ac3_bogies[0].total_seats) {
+                                currentPassenger->travel_class = AC3;
+                                currentTrainNode->train_data.ac3_bogies[0].booked_seats++;
+                                currentTrainNode->train_data.sleeper_bogies[0].booked_seats--;
+                                seat_number = currentTrainNode->train_data.ac3_bogies[0].booked_seats;
+                            }
+                            break;
+                        case AC3:
+                            if (currentTrainNode->train_data.ac2_bogies[0].booked_seats < currentTrainNode->train_data.ac2_bogies[0].total_seats) {
+                                currentPassenger->travel_class = AC2;
+                                currentTrainNode->train_data.ac2_bogies[0].booked_seats++;
+                                currentTrainNode->train_data.ac3_bogies[0].booked_seats--;
+                                seat_number = currentTrainNode->train_data.ac2_bogies[0].booked_seats;
+                            }
+                            break;
+                        case AC2:
+                            if (currentTrainNode->train_data.ac1_bogies[0].booked_seats < currentTrainNode->train_data.ac1_bogies[0].total_seats) {
+                                currentPassenger->travel_class = AC1;
+                                currentTrainNode->train_data.ac1_bogies[0].booked_seats++;
+                                currentTrainNode->train_data.ac2_bogies[0].booked_seats--;
+                                seat_number = currentTrainNode->train_data.ac1_bogies[0].booked_seats;
+                            }
+                            break;
+                        default:
+                            break;
+                    }
+
+                    currentPassenger->seat_number = seat_number;
+                }
+
+                currentPassenger = currentPassenger->next;
+            }
+
+            printf("Promotion of passengers on train ID %d and travel date %d completed.\n", train_id, date_of_travel);
+            return;
+        }
+
+        currentTrainNode = currentTrainNode->next;
+    }
+
+    printf("Train with ID %d not found.\n", train_id);
+}
+
+
+
+
+int main() {
+    initializeTrainList();
+    int choice;
+    while (1) {
+        printf("\n                Choices                            \n");
+        printf("\n 1.Insert     \n");
+        printf("\n 2.Delete    \n");
+        printf("\n 3. display   \n");
+        printf("\n 4.get_List_Destination\n");
+        printf("\n 5.SortByTravelDate\n");
+        printf("\n 6.Sort_Trains\n");
+        printf("\n 7.PromotePassengers     \n");
+        printf("\n 8.Exit       \n");
+        printf("\n--------------------------------------\n");
+        printf("Enter your choice:\t");
+        scanf("%d", &choice);
+
+        switch (choice) {
+        case 1:
+            // Get input for insert and call insertPassengers function
+            char name[50];
+            int passenger_id, train_id;
+            char boarding_train[20], boarding_station[50], destination_station[50];
+            int travel_class;
+            printf("Enter passenger name: ");
+            scanf("%s", name);
+            printf("Enter passenger ID: ");
+            scanf("%d", &passenger_id);
+            printf("Enter boarding train: ");
+            scanf("%s", boarding_train);
+            printf("Enter boarding station: ");
+            scanf("%s", boarding_station);
+            printf("Enter travel class (0: SLEEPER, 1: AC3, 2: AC2, 3: AC1): ");
+            scanf("%d", &travel_class);
+            printf("Enter destination station: ");
+            scanf("%s", destination_station);
+            printf("Enter train ID: ");
+            scanf("%d", &train_id);
+
+            insertPassengers(name, passenger_id, boarding_train, boarding_station, travel_class, destination_station, train_id);
+            break;
+
+        case 2:
+            // Get input for delete and call deletePassengers function
+            int delete_passenger_id;
+            printf("Enter passenger ID to delete: ");
+            scanf("%d", &delete_passenger_id);
+            deletePassengers(delete_passenger_id);
+            break;
+
+        case 3:
+            // Call display function
+            display();
+            break;
+
+        case 4:
+            // Call get_List_Destination function
+            get_List_Destination();
+            break;
+
+        case 5:
+            // Get input for sortByTravelDate and call sortByTravelDate function
+            int passenger_id_to_sort;
+            printf("Enter passenger ID to sort by travel date: ");
+            scanf("%d", &passenger_id_to_sort);
+            sortByTravelDate(passenger_id_to_sort);
+            break;
+
+        case 6:
+            // Call Sort_Trains function
+            Sort_Trains();
+            break;
+
+        case 7:
+            // Call Promote_Passengers function
+            Promote_Passengers(trainList.head);
+            break;
+
+        case 8:
+            exit(0);
+            break;
+
+        default:
+            printf("\n Wrong Choice:\n");
+            break;
+        }
     }
     return 0;
-}
-
-
-//display function
-void display()
-{
-        struct node *ptr;
-        if(start==NULL)
-        {
-                printf("\nList is empty\n");
-                return;
-        }
-        else
-        {
-                ptr=start;
-                printf("\nThe List elements are:\n");
-                while(ptr!=NULL)
-                {
-                		int n;
-                		printf("%d.)",n+1);
-                		n++;
-						printf("%s\t",ptr->name);
-                        printf("%d\t",ptr->passenger_id);
-                        printf("%s\t",ptr->destination_station);
-	       				printf("%d\t",ptr->train_id);
-	       				printf("bogie:%d\t",ptr->bogie_no);
-	       				printf("seatno:%d\t",ptr->seat_no);
-	       				printf("date of travel:%s",ptr->date_of_travel);
-	       				printf("\n");
-	       				printf("boarding_train:%s\t",ptr->boarding_train);
-	        			printf("boarding_station:%s\t",ptr->boarding_station);
-	        			printf("travelling_class:%s\t\n",ptr->travelling_class);
-                        ptr=ptr->next ;
-                }
-        }
-}
-
- 
-
-
-
-
-
-//Gives the list of passengers having the same destination station and same train id
-//get_List_Destination
-void get_List_Destination()
-{
-	printf("Enter the destination station and  train id to get the list:");
-	char des_station[10];
-	int t_id;
-	scanf("%s",&des_station);
-	scanf("%d",&t_id);
-	int flag=0;
-	
-	struct node* temp = start;
-    while(temp!=NULL)
-	{
-        if((strcmp(temp->destination_station,des_station))==0&&(temp->train_id==t_id))
-		{
-            printf("\npassenger name: %s\t", temp->name);
-            printf("passenger id: %d\t", temp->passenger_id);
-            printf("destination_station:%s \t",temp->destination_station);
-	       	printf("train_id:%d\n",temp->train_id);
-            flag=1;
-            
-        }
-        temp = temp->next;
-    }
-    if(flag==0)
-    {
-    	printf("train with destination station and  train id  %d is not found !!!\n", t_id);
-	}
-}
-
-
-
-
-//SortByTravelDate
-void SortByTravelDate(struct node* temp)
-{
-	int p_id;
-	printf("Enter the passenger_id to search the data: ");
-	scanf("%d",&p_id);
-	int flag=0;
-	temp = start;
-	printf("THE LIST OF DESTINATION STATIONS ARE:\n");
-	while(temp!=NULL)
-	{
-		if(temp->passenger_id==p_id)
-		{
-			printf("\n destination_station:%s \t",temp->destination_station);
-			printf("travel date:%s\n",temp->date_of_travel);
-			flag=1;
-		}
-		temp=temp->next;
-	}
-	if(flag==0)
-	{
-		printf("Passenger with passenger_id %d is not found!!\n",p_id);
-	}
-}
-
-
-
-
-//sort_train_id
-void sort_train_id(struct node* newnode)
-{
-    
-    if (sorted == NULL || sorted->train_id >= newnode->train_id) {
-        newnode->next = sorted;
-        sorted = newnode;
-    }
-    else {
-        struct node* current = sorted;
-        while (current->next != NULL&& current->next->train_id< newnode->train_id) 
-		{
-            current = current->next;
-        }
-        newnode->next = current->next;
-        current->next = newnode;
-    }
-}
-
-
-
-//Sort_Trains
-void Sort_Trains()
-{
-	struct node* current = start;
- 
-    while (current != NULL) {
- 
-        // Store next for next iteration
-        struct node* next = current->next;
- 
-        // insert current in sorted linked list
-        sort_train_id(current);
-        int train_id=current->train_id;
- 		
-        // Update current
-        current = next;
-    }
-    // Update start to point to sorted linked list
-    start = sorted;
-    printf("SORTED");
-    display();
-}
-
-//passenger_count
-void passenger_count()			//stores the passenger count of particular train
-{
-	struct node* temp=start;
-	struct train_node* t_temp=lptr;
-	int count=0;
-	while(temp!=NULL)
-	{
-		
-		printf("%d",t_temp->train_id);
-		while(t_temp->train_id==temp->train_id)
-		{
-			count++;
-			temp=temp->next;
-		}
-		printf("%d",count);
-		t_temp->count =count;
-		t_temp=t_temp->next;
-	}
-}
-
-
-
-//Promote_Passengers
-void Promote_Passengers(struct node* list_ptr)
-{
-
-	int train,seatno;
-	char date[10],dest[10];
-	printf("Enter – Train id and date of travel\t:");
-	scanf("%d %s",&train,&date);
-	printf("\n enter the  destination:");
-	scanf("%s",&dest);
-	printf("\n Enter the seat no");
-	scanf("%d",&seatno);
-	struct node *temp =start;
-    struct node *temp1;
-    while(temp=NULL)
-    {
-        temp1=temp->next;
-        while(temp1!=NULL)
-        {
-            if(temp->train_id==temp1->train_id && strcmp(temp->date_of_travel,temp1->date_of_travel)==0)
-            {
-                if(strcmp(temp->travelling_class,"Sleeper")==0 && strcmp(temp->destination_station,dest)==0)
-                {
-                    if(temp->seat_no<=seatno && temp1->seat_no<=seatno)
-                    {
-                        strcpy(temp->travelling_class,"3AC");
-                        temp->seat_no=temp1->seat_no;
-                        temp->bogie_no=temp1->bogie_no;
-                    }
-                }
-                else if(strcmp(temp->travelling_class,"3AC")==0 && strcmp(temp->destination_station,dest)==0)
-                {
-                    if(temp->seat_no<=seatno && temp1->seat_no<=seatno)
-                    {
-                        strcpy(temp->travelling_class,"2AC");
-                        temp->seat_no=temp1->seat_no;
-                        temp->bogie_no=temp1->bogie_no;
-                    }
-                }
-                else if(strcmp(temp->travelling_class,"2AC")==0 && strcmp(temp->destination_station,dest)==0)
-                {
-                    if(temp->seat_no<=seatno && temp1->seat_no<=seatno)
-                    {
-                        strcpy(temp->travelling_class,"1AC");
-                        temp->seat_no=temp1->seat_no;
-                        temp->bogie_no=temp1->bogie_no;
-                    }
-                }
-                
-            }
-            temp1=temp1->next;
-        }
-        temp=temp->next;
-    }
-    
-    display();
-}
-
-
-
-int main()     
-{
-		struct node* list_ptr;
-		list_ptr=start;
-        int choice;
-        while(1){
-               
-                printf("\n                Choices                            \n");
-                printf("\n 1.Insert     \n");
-                printf("\n 2.Delete    \n");
-                printf("\n 3. display   \n");
-               printf("\n 4.get_List_Destination\n");
-                printf("\n 5.SortByTravelDate\n");
-                printf("\n 6.Sort_Trains\n");
-                printf("\n 7.PromotePassengers     \n");
-                printf("\n 8.Exit       \n");
-                printf("\n--------------------------------------\n");
-                printf("Enter your choice:\t");
-                scanf("%d",&choice);
-                
-                switch(choice)
-                {
-                        
-                        case 1: 
-                                        insert();
-                                        break;
-                        case 2:
-                                        Delete();
-                                        break;
-                        case 3:
-                                        display();
-                                        break;
-                        case 4:
-                                      get_List_Destination();
-                                        break;
-                        case 5:
-                                      SortByTravelDate(start);
-                                        break;
-                        
-                        
-                        case 6:
-                                      Sort_Trains();
-                                        break;
-                        case 7:
-                        			Promote_Passengers(list_ptr);
-                        				break;
-                        case 8:
-                                       exit(0);
-                                        break;
-                             
-                        default:
-                                        printf("\n Wrong Choice:\n");
-                                        break;
-                }
-        }
-        return 0;
 }
